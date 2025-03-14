@@ -1,0 +1,114 @@
+=== RAW TEXT EXTRACTION ===
+
+OCR Text Extraction:
+----------------------------------------
+Full Page OCR:
+Prices found: 
+
+> 1/2 Price Specials i
+
+6
+
+SAVE &
+$6 ‘
+
+\
+|$14.12perkg] 6S
+
+Birds Eye Oven Bake /3,
+Fish 425g Nae
+
+— From the Freezer
+
+Get 1 bonus Ps
+Cubeez™* rs
+3 >
+e
+
+(
+
+SAVES3
+
+Arnott’s Tim Tam
+165-200g
+
+| wom Trl
+
+
+
+Left Region (Prices) OCR:
+----------------------------------------
+
+PSM Mode 7:
+
+
+PSM Mode 8:
+
+
+PSM Mode 13:
+
+
+Center Region (Products) OCR:
+----------------------------------------
+
+PSM Mode 3:
+/2 Price
+
+> 1/2 Price Specials i1
+
+“6.
+SAVE »&
+$6 ‘
+
+\
+$14.12 perkg Ss
+Birds Eye Oven Bake ;.
+Fish 425g \"
+- From the Freezer
+
+SAVE $3
+
+Arnott’s Tim Tam
+165-200g
+
+
+
+PSM Mode 4:
+/2 Price
+
+> 1/2 Price Specials i1
+
+SAVE »
+
+$6 °
+a ‘s
+4 Buy 1 = n Bake E
+
+Get 1 bon - From the Freeze
+
+$ re :
+SAVES3
+
+Arnott’s Tim Tam
+165-200g E
+
+
+
+=== STRUCTURED INFORMATION ===
+
+Detected Prices:
+----------------------------------------
+$14.12
+$6.00
+$14.00
+$14.12
+$14.12
+
+Detected Products:
+----------------------------------------
+Name: Prices found: > 1/2 Price Specials i 6 SAVE & $6 ‘ \ |perkg] 6S Birds Eye Oven Bake /3, Fish 425g Nae — From the Freezer Get 1 bonus Ps Cube
+Price: $6.00
+--------------------
+Name: Prices found: > 1/2 Price Specials i 6 SAVE & $6 ‘ \ |perkg] 6S Birds Eye Oven Bake /3, Fish 425g Nae — From the Freezer Get 1 bonus Ps Cubeez™* rs 3 > e ( SA
+Price: $14.12
+--------------------

@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Grocery Price Comparison</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          max-width: 800px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        .search-box, .shopping-list {
+          margin: 20px 0;
+          padding: 20px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+        }
+        input[type="text"] {
+          padding: 8px;
+          margin-right: 10px;
+          width: 200px;
+        }
+        button {
+          padding: 8px 15px;
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        button:hover {
+          background-color: #45a049;
+        }
+        #searchResults {
+          margin-top: 20px;
+        }
+        #searchResults div {
+          margin: 10px 0;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+        #shoppingList {
+          list-style-type: none;
+          padding: 0;
+        }
+        #shoppingList li {
+          padding: 8px;
+          margin: 5px 0;
+          background-color: #f9f9f9;
+          border-radius: 4px;
+        }
+        .admin-panel {
+          margin: 20px 0;
+          padding: 20px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          background-color: #f9f9f9;
+        }
+        .last-updated {
+          font-size: 0.9em;
+          color: #666;
+          margin-top: 10px;
+        }
+        .price-source {
+          font-size: 0.8em;
+          color: #666;
+          font-style: italic;
+        }
+        .upload-form {
+          margin: 10px 0;
+        }
+        .store-select {
+          padding: 8px;
+          margin-right: 10px;
+        }
+        .file-input {
+          margin: 10px 0;
+        }
+        .update-date {
+          font-size: 0.9em;
+          color: #666;
+          margin-top: 5px;
+        }
+        .button-group {
+          margin: 10px 0;
+          display: flex;
+          gap: 10px;
+        }
+        .error-message {
+          color: #d32f2f;
+          font-size: 0.9em;
+          margin-top: 5px;
+        }
+        .success-message {
+          color: #388e3c;
+          font-size: 0.9em;
+          margin-top: 5px;
+        }
+        .template-info {
+          background-color: #e3f2fd;
+          padding: 10px;
+          border-radius: 4px;
+          margin: 10px 0;
+          font-size: 0.9em;
+        }
+        .modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0,0,0,0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        .modal-content {
+          background-color: white;
+          padding: 20px;
+          border-radius: 5px;
+          max-width: 80%;
+          max-height: 80%;
+          overflow-y: auto;
+        }
+        .preview-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 10px 0;
+        }
+        .preview-table th, .preview-table td {
+          border: 1px solid #ddd;
+          padding: 8px;
+          text-align: left;
+        }
+        .preview-table th {
+          background-color: #f5f5f5;
+        }
+        .price-change {
+          background-color: #fff3e0;
+        }
+        .category-header {
+          font-weight: bold;
+          margin-top: 10px;
+          color: #666;
+        }
+        .warning-message {
+          color: #ff9800;
+          font-size: 0.9em;
+          margin-top: 5px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Grocery Price Comparison</h1>
+
+      <!-- Admin Panel for Catalog Updates -->
+      <div class="admin-panel">
+        <h2>Manage Catalog Prices</h2>
+        
+        <div class="template-info">
+          <strong>CSV Template Format:</strong><br>
+          name,brand,price<br>
+          Milk (1L),Devondale,3.00<br>
+          Bread,Wonder White,3.50
+        </div>
+
+        <div class="upload-form">
+          <select id="storeSelect" class="store-select">
+            <option value="woolworths">Woolworths</option>
+            <option value="coles">Coles</option>
+            <option value="aldi">Aldi</option>
+          </select>
+          <div class="button-group">
+            <button onclick="downloadTemplate()">Download Template</button>
+            <button onclick="exportCurrentPrices()">Export Current Prices</button>
+            <button onclick="exportAllPrices()">Export All Stores</button>
+            <button onclick="showBulkUploadModal()">Bulk Upload</button>
+          </div>
+          <input type="file" id="catalogFile" accept=".csv" class="file-input">
+          <button onclick="uploadCatalog()">Upload Catalog</button>
+          <div id="uploadStatus"></div>
+        </div>
+
+        <div id="lastUpdated" class="last-updated">
+          Last updated: 
+          <span id="woolworthsUpdate">Woolworths: Never</span><br>
+          <span id="colesUpdate">Coles: Never</span><br>
+          <span id="aldiUpdate">Aldi: Never</span>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <h2>Search for Products</h2>
+        <input type="text" id="searchInput" placeholder="Enter product name">
+        <button id="searchButton">Search</button>
+        <div id="searchResults"></div>
+      </div>
+
+      <div class="shopping-list">
+        <h2>Shopping List</h2>
+        <ul id="shoppingList"></ul>
+        <input type="text" id="addItemInput" placeholder="Add item to list">
+        <button id="addItemButton">Add</button>
+      </div>
+
+      <!-- Add preview modal -->
+      <div id="previewModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <h3>Preview Changes</h3>
+          <div id="previewContent"></div>
+          <div class="button-group">
+            <button onclick="confirmUpload()">Confirm Upload</button>
+            <button onclick="cancelUpload()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add bulk upload modal -->
+      <div id="bulkUploadModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <h3>Bulk Upload</h3>
+          <p>Upload prices for multiple stores at once</p>
+          <input type="file" id="woolworthsFile" accept=".csv" class="file-input">
+          <label>Woolworths Catalog</label><br>
+          <input type="file" id="colesFile" accept=".csv" class="file-input">
+          <label>Coles Catalog</label><br>
+          <input type="file" id="aldiFile" accept=".csv" class="file-input">
+          <label>Aldi Catalog</label><br>
+          <div class="button-group">
+            <button onclick="processBulkUpload()">Upload All</button>
+            <button onclick="closeBulkUploadModal()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        // Hardcoded product data (simulating a database)
+        const products = [
+          // Dairy Products
+          { 
+            id: 1, 
+            name: "Milk (1L)", 
+            brand: "Devondale",
+            price: { woolworths: 3.00, coles: 3.10, aldi: 2.90 } 
+          },
+          { 
+            id: 2, 
+            name: "Cheese (500g)", 
+            brand: "Bega",
+            price: { woolworths: 8.50, coles: 8.60, aldi: 8.00 } 
+          },
+          {
+            id: 3,
+            name: "Cream Cheese (250g)",
+            brand: "Philadelphia",
+            price: { woolworths: 5.50, coles: 5.60, aldi: 5.20 }
+          },
+
+          // Bread & Buns
+          { 
+            id: 4, 
+            name: "Bread", 
+            brand: "Wonder White",
+            price: { woolworths: 3.50, coles: 3.60, aldi: 3.20 } 
+          },
+          {
+            id: 5,
+            name: "Burger Buns (6 pack)",
+            brand: "Tip Top",
+            price: { woolworths: 4.00, coles: 4.10, aldi: 3.80 }
+          },
+
+          // Eggs
+          { 
+            id: 6, 
+            name: "Eggs (12)", 
+            brand: "Farm Fresh",
+            price: { woolworths: 6.00, coles: 6.20, aldi: 5.80 } 
+          },
+
+          // Fruits
+          { 
+            id: 7, 
+            name: "Apples (1kg)", 
+            brand: "Pink Lady",
+            price: { woolworths: 4.00, coles: 4.10, aldi: 3.80 } 
+          },
+          {
+            id: 8,
+            name: "Bananas (1kg)",
+            brand: "Cavendish",
+            price: { woolworths: 3.90, coles: 3.95, aldi: 3.70 }
+          },
+          {
+            id: 9,
+            name: "Oranges (1kg)",
+            brand: "Navel",
+            price: { woolworths: 3.50, coles: 3.60, aldi: 3.30 }
+          },
+          {
+            id: 10,
+            name: "Strawberries (250g)",
+            brand: "Fresh Market",
+            price: { woolworths: 4.50, coles: 4.60, aldi: 4.20 }
+          },
+          {
+            id: 11,
+            name: "Blueberries (125g)",
+            brand: "Fresh Market",
+            price: { woolworths: 4.00, coles: 4.20, aldi: 3.80 }
+          },
+
+          // Vegetables
+          {
+            id: 12,
+            name: "Tomatoes (1kg)",
+            brand: "Fresh Market",
+            price: { woolworths: 6.90, coles: 7.00, aldi: 6.50 }
+          },
+          {
+            id: 13,
+            name: "Lettuce (each)",
+            brand: "Fresh Market",
+            price: { woolworths: 2.90, coles: 3.00, aldi: 2.70 }
+          },
+          {
+            id: 14,
+            name: "Carrots (1kg)",
+            brand: "Fresh Market",
+            price: { woolworths: 2.50, coles: 2.60, aldi: 2.30 }
+          },
+          {
+            id: 15,
+            name: "Potatoes (2kg)",
+            brand: "Fresh Market",
+            price: { woolworths: 5.00, coles: 5.20, aldi: 4.80 }
+          },
+          {
+            id: 16,
+            name: "Onions (1kg)",
+            brand: "Fresh Market",
+            price: { woolworths: 2.90, coles: 3.00, aldi: 2.70 }
+          },
+          {
+            id: 17,
+            name: "Cucumber (each)",
+            brand: "Fresh Market",
+            price: { woolworths: 1.90, coles: 2.00, aldi: 1.80 }
+          },
+
+          // Condiments
+          {
+            id: 18,
+            name: "Mayonnaise (400g)",
+            brand: "Hellmann's",
+            price: { woolworths: 5.50, coles: 5.60, aldi: 5.20 }
+          },
+          {
+            id: 19,
+            name: "Tomato Sauce (500ml)",
+            brand: "Heinz",
+            price: { woolworths: 4.20, coles: 4.30, aldi: 4.00 }
+          },
+          {
+            id: 20,
+            name: "BBQ Sauce (500ml)",
+            brand: "Masterfoods",
+            price: { woolworths: 4.50, coles: 4.60, aldi: 4.30 }
+          },
+          {
+            id: 21,
+            name: "Mustard (250g)",
+            brand: "Colman's",
+            price: { woolworths: 3.80, coles: 3.90, aldi: 3.60 }
+          },
+          {
+            id: 22,
+            name: "Sweet Chili Sauce (300ml)",
+            brand: "Masterfoods",
+            price: { woolworths: 3.90, coles: 4.00, aldi: 3.70 }
+          },
+          {
+            id: 23,
+            name: "Soy Sauce (500ml)",
+            brand: "Kikkoman",
+            price: { woolworths: 5.50, coles: 5.60, aldi: 5.20 }
+          },
+
+          // Soft Drinks
+          {
+            id: 24,
+            name: "Cola (2L)",
+            brand: "Coca-Cola",
+            price: { woolworths: 3.50, coles: 3.55, aldi: 3.40 }
+          },
+          {
+            id: 25,
+            name: "Lemonade (2L)",
+            brand: "Schweppes",
+            price: { woolworths: 3.30, coles: 3.40, aldi: 3.20 }
+          },
+          {
+            id: 26,
+            name: "Orange Soda (2L)",
+            brand: "Fanta",
+            price: { woolworths: 3.50, coles: 3.55, aldi: 3.40 }
+          },
+          {
+            id: 27,
+            name: "Ginger Beer (2L)",
+            brand: "Bundaberg",
+            price: { woolworths: 4.50, coles: 4.60, aldi: 4.30 }
+          },
+          {
+            id: 28,
+            name: "Mineral Water (1.25L)",
+            brand: "Mount Franklin",
+            price: { woolworths: 2.50, coles: 2.60, aldi: 2.30 }
+          },
+
+          // Meats
+          {
+            id: 29,
+            name: "Chicken Breast (1kg)",
+            brand: "Lilydale",
+            price: { woolworths: 12.00, coles: 12.50, aldi: 11.50 }
+          },
+          {
+            id: 30,
+            name: "Beef Mince (500g)",
+            brand: "Premium",
+            price: { woolworths: 8.50, coles: 8.70, aldi: 8.00 }
+          },
+          {
+            id: 31,
+            name: "Pork Chops (500g)",
+            brand: "Premium Cut",
+            price: { woolworths: 9.00, coles: 9.20, aldi: 8.70 }
+          },
+          {
+            id: 32,
+            name: "Lamb Chops (500g)",
+            brand: "Premium Cut",
+            price: { woolworths: 12.50, coles: 12.70, aldi: 12.00 }
+          },
+          {
+            id: 33,
+            name: "Bacon (200g)",
+            brand: "D'Orsogna",
+            price: { woolworths: 6.50, coles: 6.70, aldi: 6.20 }
+          },
+          {
+            id: 34,
+            name: "Sausages (500g)",
+            brand: "Premium",
+            price: { woolworths: 7.00, coles: 7.20, aldi: 6.80 }
+          },
+
+          // Snacks
+          {
+            id: 35,
+            name: "Potato Chips (175g)",
+            brand: "Smith's",
+            price: { woolworths: 3.50, coles: 3.60, aldi: 3.30 }
+          },
+          {
+            id: 36,
+            name: "Corn Chips (175g)",
+            brand: "Doritos",
+            price: { woolworths: 3.80, coles: 3.90, aldi: 3.60 }
+          },
+          {
+            id: 37,
+            name: "Chocolate Bar (200g)",
+            brand: "Cadbury",
+            price: { woolworths: 4.00, coles: 4.10, aldi: 3.80 }
+          },
+          {
+            id: 38,
+            name: "Mixed Nuts (400g)",
+            brand: "Nice & Natural",
+            price: { woolworths: 8.00, coles: 8.20, aldi: 7.80 }
+          },
+          {
+            id: 39,
+            name: "Popcorn (100g)",
+            brand: "Cobs",
+            price: { woolworths: 4.50, coles: 4.60, aldi: 4.30 }
+          },
+          {
+            id: 40,
+            name: "Biscuits (250g)",
+            brand: "Arnott's",
+            price: { woolworths: 3.80, coles: 3.90, aldi: 3.60 }
+          },
+          {
+            id: 41,
+            name: "Ice Cream (2L)",
+            brand: "Streets",
+            price: { woolworths: 8.50, coles: 8.70, aldi: 8.20 }
+          },
+          {
+            id: 42,
+            name: "Lollies (200g)",
+            brand: "Allen's",
+            price: { woolworths: 3.90, coles: 4.00, aldi: 3.70 }
+          }
+        ];
+
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const searchResults = document.getElementById('searchResults');
+        const shoppingList = document.getElementById('shoppingList');
+        const addItemInput = document.getElementById('addItemInput');
+        const addItemButton = document.getElementById('addItemButton');
+
+        // Search function
+        async function searchProducts() {
+          const searchTerm = searchInput.value.toLowerCase();
+          const results = products.filter(product => 
+            product.name.toLowerCase().includes(searchTerm) || 
+            product.brand.toLowerCase().includes(searchTerm)
+          );
+
+          // For each result, try to get real-time prices
+          for (let product of results) {
+            try {
+              const response = await fetch(`/api/prices?product=${encodeURIComponent(product.name)}`);
+              const realTimePrices = await response.json();
+              
+              // Update prices if available
+              if (realTimePrices.woolworths && realTimePrices.woolworths.price) {
+                product.price.woolworths = realTimePrices.woolworths.price;
+              }
+              if (realTimePrices.coles && realTimePrices.coles.price) {
+                product.price.coles = realTimePrices.coles.price;
+              }
+              if (realTimePrices.aldi && realTimePrices.aldi.price) {
+                product.price.aldi = realTimePrices.aldi.price;
+              }
+            } catch (error) {
+              console.log(`Could not fetch real-time prices for ${product.name}: ${error}`);
+            }
+          }
+          
+          displaySearchResults(results);
+        }
+
+        // Display search results
+        function displaySearchResults(results) {
+          searchResults.innerHTML = '';
+          if (results.length === 0) {
+            searchResults.textContent = 'No products found.';
+            return;
+          }
+
+          results.forEach(product => {
+            const productDiv = document.createElement('div');
+            productDiv.innerHTML = `
+              <b>${product.name}</b> - ${product.brand}<br>
+              Woolworths: $${product.price.woolworths.toFixed(2)}<br>
+              Coles: $${product.price.coles.toFixed(2)}<br>
+              Aldi: $${product.price.aldi.toFixed(2)}<br>
+              <div class="price-source">* Prices from latest catalogs</div>
+              <button onclick="addItemToShoppingList(${product.id})">Add to List</button>
+            `;
+            searchResults.appendChild(productDiv);
+          });
+        }
+
+        // Add item to shopping list
+        function addItemToShoppingList(productId) {
+          const product = products.find(p => p.id === productId);
+          if (!product) return;
+
+          const listItem = document.createElement('li');
+          listItem.textContent = `${product.name} - ${product.brand}`;
+          shoppingList.appendChild(listItem);
+        }
+
+        // Event listeners
+        searchButton.addEventListener('click', searchProducts);
+        addItemButton.addEventListener('click', () => {
+          const itemName = addItemInput.value.trim();
+          if (itemName) {
+            const listItem = document.createElement('li');
+            listItem.textContent = itemName;
+            shoppingList.appendChild(listItem);
+            addItemInput.value = '';
+          }
+        });
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+          // Add enter key support for search
+          searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+              searchProducts();
+            }
+          });
+
+          // Add enter key support for adding items
+          addItemInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+              const itemName = addItemInput.value.trim();
+              if (itemName) {
+                const listItem = document.createElement('li');
+                listItem.textContent = itemName;
+                shoppingList.appendChild(listItem);
+                addItemInput.value = '';
+              }
+            }
+          });
+        });
+
+        // Download empty template
+        function downloadTemplate() {
+          const template = 'name,brand,price\nMilk (1L),Devondale,3.00\nBread,Wonder White,3.50';
+          downloadCSV(template, 'price_template.csv');
+        }
+
+        // Export current prices
+        function exportCurrentPrices() {
+          const store = document.getElementById('storeSelect').value;
+          let csv = 'name,brand,price\n';
+          
+          products.forEach(product => {
+            csv += `${product.name},${product.brand},${product.price[store]}\n`;
+          });
+          
+          downloadCSV(csv, `${store}_prices.csv`);
+        }
+
+        // Enhanced export with more information
+        function exportAllPrices() {
+          let csv = 'name,brand,category,woolworths,coles,aldi,lowest_price,best_value\n';
+          
+          products.forEach(product => {
+            const prices = product.price;
+            const lowestPrice = Math.min(prices.woolworths, prices.coles, prices.aldi);
+            const bestValue = Object.entries(prices).find(([store, price]) => price === lowestPrice)[0];
+            
+            csv += `${product.name},${product.brand},${getCategory(product)},` +
+                   `${prices.woolworths.toFixed(2)},${prices.coles.toFixed(2)},${prices.aldi.toFixed(2)},` +
+                   `${lowestPrice.toFixed(2)},${bestValue}\n`;
+          });
+          
+          downloadCSV(csv, 'all_store_prices.csv');
+        }
+
+        // Helper function to get product category
+        function getCategory(product) {
+          const id = product.id;
+          if (id <= 3) return 'Dairy';
+          if (id <= 5) return 'Bread';
+          if (id === 6) return 'Eggs';
+          if (id <= 11) return 'Fruits';
+          if (id <= 17) return 'Vegetables';
+          if (id <= 23) return 'Condiments';
+          if (id <= 28) return 'Soft Drinks';
+          if (id <= 34) return 'Meats';
+          return 'Snacks';
+        }
+
+        // Helper function to download CSV
+        function downloadCSV(content, filename) {
+          const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          if (navigator.msSaveBlob) {
+            navigator.msSaveBlob(blob, filename);
+          } else {
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        }
+
+        let pendingChanges = null;
+        
+        // Enhanced validation rules
+        function validatePrice(price, name, brand) {
+          if (isNaN(price) || price < 0) return false;
+          if (price > 1000) return `Warning: Very high price for ${name} (${brand}): $${price}`;
+          if (price < 0.10) return `Warning: Very low price for ${name} (${brand}): $${price}`;
+          return true;
+        }
+
+        function validateData(data) {
+          const errors = [];
+          const warnings = [];
+
+          // Check for duplicate entries
+          const seen = new Set();
+          data.forEach((row, index) => {
+            const key = `${row.name}-${row.brand}`.toLowerCase();
+            if (seen.has(key)) {
+              errors.push(`Line ${index + 1}: Duplicate entry for ${row.name} (${row.brand})`);
+            }
+            seen.add(key);
+
+            // Validate price
+            const priceValidation = validatePrice(row.price, row.name, row.brand);
+            if (priceValidation !== true) {
+              if (typeof priceValidation === 'string') {
+                warnings.push(priceValidation);
+              } else {
+                errors.push(`Line ${index + 1}: Invalid price for ${row.name}`);
+              }
+            }
+
+            // Check for missing or invalid data
+            if (!row.name || row.name.length < 2) {
+              errors.push(`Line ${index + 1}: Invalid product name`);
+            }
+            if (!row.brand || row.brand.length < 2) {
+              errors.push(`Line ${index + 1}: Invalid brand name`);
+            }
+          });
+
+          return { errors, warnings };
+        }
+
+        // Preview functionality
+        function showPreview(parsedData, store) {
+          const modal = document.getElementById('previewModal');
+          const content = document.getElementById('previewContent');
+          
+          let html = '<table class="preview-table">';
+          html += '<tr><th>Product</th><th>Brand</th><th>Current Price</th><th>New Price</th><th>Change</th></tr>';
+
+          parsedData.forEach(row => {
+            const product = products.find(p => 
+              p.name.toLowerCase() === row.name.toLowerCase() && 
+              p.brand.toLowerCase() === row.brand.toLowerCase()
+            );
+
+            if (product) {
+              const currentPrice = product.price[store];
+              const newPrice = parseFloat(row.price);
+              const change = ((newPrice - currentPrice) / currentPrice * 100).toFixed(1);
+              const changeClass = Math.abs(change) > 10 ? 'price-change' : '';
+
+              html += `<tr class="${changeClass}">
+                <td>${row.name}</td>
+                <td>${row.brand}</td>
+                <td>$${currentPrice.toFixed(2)}</td>
+                <td>$${newPrice.toFixed(2)}</td>
+                <td>${change}%</td>
+              </tr>`;
+            }
+          });
+
+          html += '</table>';
+          content.innerHTML = html;
+          modal.style.display = 'flex';
+
+          pendingChanges = { data: parsedData, store: store };
+        }
+
+        // Bulk upload functionality
+        function showBulkUploadModal() {
+          document.getElementById('bulkUploadModal').style.display = 'flex';
+        }
+
+        function closeBulkUploadModal() {
+          document.getElementById('bulkUploadModal').style.display = 'none';
+        }
+
+        async function processBulkUpload() {
+          const files = {
+            woolworths: document.getElementById('woolworthsFile').files[0],
+            coles: document.getElementById('colesFile').files[0],
+            aldi: document.getElementById('aldiFile').files[0]
+          };
+
+          const results = {
+            success: [],
+            errors: []
+          };
+
+          for (const [store, file] of Object.entries(files)) {
+            if (file) {
+              try {
+                const data = await readFileAsync(file);
+                const parsedData = parseCSV(data);
+                const validation = validateData(parsedData);
+                
+                if (validation.errors.length === 0) {
+                  results.success.push(`${store}: ${parsedData.length} products updated`);
+                  updatePrices(parsedData, store);
+                } else {
+                  results.errors.push(`${store}: ${validation.errors.join(', ')}`);
+                }
+              } catch (error) {
+                results.errors.push(`${store}: ${error.message}`);
+              }
+            }
+          }
+
+          showStatus(
+            `Bulk upload results:\n` +
+            `Success: ${results.success.join('\n')}\n` +
+            `Errors: ${results.errors.join('\n')}`,
+            results.errors.length > 0 ? 'warning' : 'success'
+          );
+
+          closeBulkUploadModal();
+        }
+
+        // Helper function to read file
+        function readFileAsync(file) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsText(file);
+          });
+        }
+
+        // Helper function to parse CSV
+        function parseCSV(content) {
+          const lines = content.split('\n');
+          const headers = lines[0].toLowerCase().split(',');
+          const nameIndex = headers.indexOf('name');
+          const priceIndex = headers.indexOf('price');
+          const brandIndex = headers.indexOf('brand');
+
+          if (nameIndex === -1 || priceIndex === -1 || brandIndex === -1) {
+            throw new Error('Invalid CSV format');
+          }
+
+          return lines.slice(1)
+            .filter(line => line.trim())
+            .map(line => {
+              const values = line.split(',');
+              return {
+                name: values[nameIndex].trim(),
+                price: parseFloat(values[priceIndex]),
+                brand: values[brandIndex].trim()
+              };
+            });
+        }
+
+        // Update the original uploadCatalog function to use preview
+        async function uploadCatalog() {
+          const fileInput = document.getElementById('catalogFile');
+          const storeSelect = document.getElementById('storeSelect');
+          const file = fileInput.files[0];
+          const store = storeSelect.value;
+
+          if (!file) {
+            showStatus('Please select a file to upload', 'error');
+            return;
+          }
+
+          try {
+            const content = await readFileAsync(file);
+            const parsedData = parseCSV(content);
+            const validation = validateData(parsedData);
+
+            if (validation.errors.length > 0) {
+              showStatus(`Validation errors:\n${validation.errors.join('\n')}`, 'error');
+              return;
+            }
+
+            if (validation.warnings.length > 0) {
+              showStatus(`Warnings:\n${validation.warnings.join('\n')}`, 'warning');
+            }
+
+            showPreview(parsedData, store);
+          } catch (error) {
+            showStatus(`Error processing file: ${error.message}`, 'error');
+          }
+        }
+
+        // Confirm upload after preview
+        function confirmUpload() {
+          if (!pendingChanges) return;
+
+          const { data, store } = pendingChanges;
+          updatePrices(data, store);
+          
+          document.getElementById('previewModal').style.display = 'none';
+          pendingChanges = null;
+        }
+
+        // Cancel upload
+        function cancelUpload() {
+          document.getElementById('previewModal').style.display = 'none';
+          pendingChanges = null;
+        }
+
+        // Update prices in the products array
+        function updatePrices(data, store) {
+          let updatedCount = 0;
+          data.forEach(row => {
+            const product = products.find(p => 
+              p.name.toLowerCase() === row.name.toLowerCase() && 
+              p.brand.toLowerCase() === row.brand.toLowerCase()
+            );
+            if (product) {
+              product.price[store] = row.price;
+              updatedCount++;
+            }
+          });
+
+          const timestamp = new Date().toLocaleString();
+          document.getElementById(store + 'Update').textContent = 
+            store.charAt(0).toUpperCase() + store.slice(1) + ': ' + timestamp;
+
+          showStatus(`Updated ${updatedCount} products successfully.`, 'success');
+        }
+      </script>
+    </body>
+    </html>

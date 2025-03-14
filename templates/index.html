@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Invato - Smart Document Processing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #6366F1;
+            --primary-dark: #4F46E5;
+            --secondary-color: #10B981;
+            --background-color: #F9FAFB;
+            --text-color: #1F2937;
+            --border-color: #E5E7EB;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .container {
+                padding: 2rem;
+            }
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (min-width: 640px) {
+            .header {
+                padding: 1rem 0;
+                margin-bottom: 2rem;
+            }
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            color: var(--text-color);
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--primary-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        @media (min-width: 640px) {
+            .logo-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5rem;
+            }
+        }
+
+        .logo-text {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        @media (min-width: 640px) {
+            .logo-text {
+                font-size: 1.5rem;
+            }
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        @media (min-width: 640px) {
+            .main-content {
+                padding: 2rem;
+                border-radius: 1rem;
+            }
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .hero h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--text-color);
+        }
+
+        @media (min-width: 640px) {
+            .hero h1 {
+                font-size: 2.5rem;
+                margin-bottom: 1rem;
+            }
+        }
+
+        .hero p {
+            font-size: 1rem;
+            color: #6B7280;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .hero p {
+                font-size: 1.125rem;
+                padding: 0;
+            }
+        }
+
+        .upload-section {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            touch-action: manipulation;
+        }
+
+        @media (min-width: 640px) {
+            .upload-section {
+                padding: 2rem;
+            }
+        }
+
+        .upload-section:hover, .upload-section:active {
+            border-color: var(--primary-color);
+            background-color: #F8FAFC;
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 0.75rem;
+            background: #EEF2FF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1.25rem;
+        }
+
+        @media (min-width: 640px) {
+            .upload-icon {
+                width: 64px;
+                height: 64px;
+                margin-bottom: 1rem;
+                font-size: 1.5rem;
+            }
+        }
+
+        .upload-text {
+            font-size: 1rem;
+            color: #6B7280;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (min-width: 640px) {
+            .upload-text {
+                font-size: 1.125rem;
+            }
+        }
+
+        .upload-hint {
+            font-size: 0.75rem;
+            color: #9CA3AF;
+        }
+
+        @media (min-width: 640px) {
+            .upload-hint {
+                font-size: 0.875rem;
+            }
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            gap: 0.5rem;
+            touch-action: manipulation;
+            -webkit-appearance: none;
+            font-size: 0.875rem;
+        }
+
+        @media (min-width: 640px) {
+            .btn {
+                padding: 0.75rem 1.5rem;
+                font-size: 1rem;
+            }
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        @media (min-width: 640px) {
+            .btn-primary {
+                width: auto;
+            }
+        }
+
+        .btn-primary:hover, .btn-primary:active {
+            background: var(--primary-dark);
+        }
+
+        .result-section {
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        @media (min-width: 640px) {
+            .result-section {
+                margin-top: 2rem;
+            }
+        }
+
+        .result-section.active {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .result-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        @media (min-width: 640px) {
+            .result-title {
+                font-size: 1.25rem;
+            }
+        }
+
+        .result-content {
+            background: #F8FAFC;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            font-size: 0.875rem;
+        }
+
+        @media (min-width: 640px) {
+            .result-content {
+                max-height: 400px;
+                font-size: 1rem;
+            }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+
+        @media (min-width: 640px) {
+            .loading {
+                margin: 2rem 0;
+            }
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #F3F4F6;
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 0.75rem;
+        }
+
+        @media (min-width: 640px) {
+            .spinner {
+                width: 40px;
+                height: 40px;
+                border-width: 4px;
+                margin-bottom: 1rem;
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-message {
+            color: #DC2626;
+            background: #FEE2E2;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            display: none;
+            font-size: 0.875rem;
+        }
+
+        @media (min-width: 640px) {
+            .error-message {
+                padding: 1rem;
+                font-size: 1rem;
+            }
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 0.75rem;
+            box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        @media (min-width: 640px) {
+            .bottom-nav {
+                display: none;
+            }
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-color);
+            font-size: 0.75rem;
+            gap: 0.25rem;
+        }
+
+        .nav-icon {
+            font-size: 1.25rem;
+        }
+
+        /* Safe area for bottom navigation */
+        @supports (padding: env(safe-area-inset-bottom)) {
+            body {
+                padding-bottom: calc(env(safe-area-inset-bottom) + 60px);
+            }
+            .bottom-nav {
+                padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="/" class="logo">
+                <div class="logo-icon">I</div>
+                <span class="logo-text">Invato</span>
+            </a>
+        </header>
+
+        <main class="main-content">
+            <div class="hero">
+                <h1>Transform Your Documents</h1>
+                <p>Upload any image or PDF document and let Invato extract text with advanced OCR technology</p>
+            </div>
+
+            <div class="upload-section" id="drop-zone">
+                <input type="file" id="file-input" accept="image/*,.pdf" capture="environment">
+                <div class="upload-icon">📄</div>
+                <p class="upload-text">Drag & drop or tap to upload</p>
+                <p class="upload-hint">Supports images and PDF files up to 16MB</p>
+            </div>
+
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Processing your document...</p>
+            </div>
+
+            <div class="error-message"></div>
+
+            <div class="result-section">
+                <div class="result-header">
+                    <h2 class="result-title">Extracted Text</h2>
+                    <button class="btn btn-primary" onclick="copyText()">
+                        <span>Copy Text</span>
+                    </button>
+                </div>
+                <div class="result-content"></div>
+            </div>
+        </main>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item">
+            <span class="nav-icon">🏠</span>
+            <span>Home</span>
+        </a>
+        <a href="#" class="nav-item" onclick="document.getElementById('file-input').click(); return false;">
+            <span class="nav-icon">📷</span>
+            <span>Capture</span>
+        </a>
+        <a href="#" class="nav-item">
+            <span class="nav-icon">📄</span>
+            <span>History</span>
+        </a>
+    </nav>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('result-section');
+        const resultContent = document.getElementById('result-content');
+        const errorMessage = document.getElementById('error-message');
+
+        // Handle drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--primary-color)';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = 'var(--border-color)';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--border-color)';
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                handleFile(files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show loading, hide results and errors
+            loading.classList.add('active');
+            resultSection.classList.remove('active');
+            errorMessage.classList.remove('active');
+
+            fetch('/extract-text', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('active');
+                if (data.success) {
+                    resultContent.textContent = data.text;
+                    resultSection.classList.add('active');
+                } else {
+                    errorMessage.textContent = data.error || 'An error occurred while processing the file.';
+                    errorMessage.classList.add('active');
+                }
+            })
+            .catch(error => {
+                loading.classList.remove('active');
+                errorMessage.textContent = 'An error occurred while processing the file.';
+                errorMessage.classList.add('active');
+            });
+        }
+
+        // Add touch feedback
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(button => {
+            button.addEventListener('touchstart', () => {
+                button.style.transform = 'scale(0.98)';
+            });
+            button.addEventListener('touchend', () => {
+                button.style.transform = 'scale(1)';
+            });
+        });
+
+        // Prevent zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (event) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Add copy functionality
+        function copyText() {
+            const resultContent = document.querySelector('.result-content');
+            const text = resultContent.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector('.btn-primary');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span>Copied!</span>';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html> 

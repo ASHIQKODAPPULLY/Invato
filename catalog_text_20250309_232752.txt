@@ -1,0 +1,18 @@
+=== RAW TEXT EXTRACTION ===
+
+=== PYMUPDF TEXT EXTRACTION ===
+
+Detected Prices:
+----------------------------------------
+
+Detected Products:
+----------------------------------------
+
+
+=== STRUCTURED INFORMATION ===
+
+Detected Prices:
+----------------------------------------
+
+Detected Products:
+----------------------------------------
