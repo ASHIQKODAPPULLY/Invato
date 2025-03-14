@@ -50,4 +50,7 @@ uploads/
 Thumbs.db
 
 # Test files
-test_*.py 
+test_*.py
+
+# Tesseract source code
+tesseract-main/ 
