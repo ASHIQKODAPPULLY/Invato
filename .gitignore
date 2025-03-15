@@ -37,6 +37,7 @@ debug_*.png
 # Temporary files
 *_processed.jpg
 extracted_products_*.csv
+extracted_prices_*.csv
 uploads/
 *_text_*.txt
 catalog_text_*.txt
@@ -60,12 +61,6 @@ backup_*/
 *_scraper.py
 catalog_*.py
 
-# PDF files
-*.pdf
-
-# CSV files
-*.csv
-
 # Temporary scripts
 server.js
 server.py
@@ -75,4 +70,10 @@ vite.config.js
 # Screenshots and temporary images
 screenshot_*.png
 *_original_*.jpg
-*_processed_*.jpg 
+*_processed_*.jpg
+
+# PDF files
+*.pdf
+
+# CSV files
+*.csv 
