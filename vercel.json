@@ -6,7 +6,8 @@
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "15mb",
-                "runtime": "python3.9"
+                "runtime": "python3.9",
+                "excludeFiles": "**/*.?(test|spec).py"
             }
         }
     ],
@@ -18,5 +19,11 @@
     ],
     "env": {
         "PYTHONPATH": "/var/task"
+    },
+    "functions": {
+        "app.py": {
+            "memory": 1024,
+            "maxDuration": 10
+        }
     }
 } 

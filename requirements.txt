@@ -2,8 +2,4 @@
 flask==3.0.2
 Pillow==10.2.0
 google-cloud-vision==3.4.4
-Werkzeug==3.0.1
-
-# Use a lighter image processing library instead of OpenCV
-imageio==2.31.6
-scikit-image==0.22.0 
+Werkzeug==3.0.1 
