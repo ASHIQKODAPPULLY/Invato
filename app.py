@@ -1,18 +1,13 @@
 from flask import Flask, request, jsonify, render_template
 import os
 from werkzeug.utils import secure_filename
-from PIL import Image
+from PIL import Image, ImageEnhance
 import tempfile
 import io
 import json
 from google.cloud import vision
 from google.oauth2 import service_account
 import logging
-from skimage import io as skio
-from skimage.color import rgb2gray
-from skimage.filters import threshold_otsu
-from skimage.morphology import opening, square
-import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -51,38 +46,36 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def preprocess_image(image_path):
-    """Apply simplified image preprocessing techniques to improve OCR accuracy"""
-    # Read image using scikit-image
-    img = skio.imread(image_path)
-    
-    # Resize image if too large (maintain aspect ratio)
-    max_dimension = 2000
-    height, width = img.shape[:2]
-    if max(height, width) > max_dimension:
-        scale = max_dimension / max(height, width)
-        new_height = int(height * scale)
-        new_width = int(width * scale)
-        img = skio.resize(img, (new_height, new_width), anti_aliasing=True)
-    
-    # Convert to grayscale
-    if len(img.shape) > 2:  # If image is color
-        gray = rgb2gray(img)
-    else:
-        gray = img
-    
-    # Apply thresholding
-    thresh = threshold_otsu(gray)
-    binary = gray > thresh
-    
-    # Simple noise removal
-    selem = square(2)
-    processed = opening(binary, selem)
-    
-    # Save preprocessed image
-    preprocessed_path = image_path + "_processed.jpg"
-    skio.imsave(preprocessed_path, (processed * 255).astype(np.uint8))
-    
-    return preprocessed_path
+    """Apply basic image preprocessing using PIL"""
+    try:
+        # Open image
+        with Image.open(image_path) as img:
+            # Convert to RGB if needed
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Resize if too large (maintain aspect ratio)
+            max_dimension = 2000
+            if max(img.size) > max_dimension:
+                ratio = max_dimension / max(img.size)
+                new_size = tuple(int(dim * ratio) for dim in img.size)
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Convert to grayscale
+            img = img.convert('L')
+            
+            # Enhance contrast
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(2.0)  # Increase contrast
+            
+            # Save preprocessed image
+            preprocessed_path = image_path + "_processed.jpg"
+            img.save(preprocessed_path, 'JPEG', quality=95)
+            
+            return preprocessed_path
+    except Exception as e:
+        logger.error(f"Error in image preprocessing: {str(e)}")
+        raise
 
 @app.route('/')
 def index():
@@ -98,8 +91,6 @@ def extract_text():
         
         file = request.files['file']
         
-        # If user does not select file, browser also
-        # submit an empty part without filename
         if file.filename == '':
             logger.error("No selected file")
             return jsonify({'error': 'No selected file'}), 400
@@ -111,16 +102,16 @@ def extract_text():
             logger.info(f"File saved to {filepath}")
             
             try:
-                # Preprocess the image to improve OCR accuracy
+                # Preprocess the image
                 logger.info("Starting image preprocessing")
                 preprocessed_path = preprocess_image(filepath)
                 logger.info(f"Image preprocessed and saved to {preprocessed_path}")
                 
-                # Initialize Vision client with credentials
+                # Initialize Vision client
                 client = get_vision_client()
                 logger.info("Vision client initialized")
 
-                # Read the image file
+                # Read the preprocessed image
                 with io.open(preprocessed_path, 'rb') as image_file:
                     content = image_file.read()
 
@@ -170,6 +161,5 @@ def extract_text():
             'error': 'An unexpected error occurred'
         }), 500
 
-# For local development
 if __name__ == '__main__':
     app.run(host='localhost', port=5000, debug=True) 

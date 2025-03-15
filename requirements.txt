@@ -1,4 +1,4 @@
-# Python dependencies for the project
+# Core dependencies
 flask==3.0.2
 Pillow==10.2.0
 google-cloud-vision==3.4.4
