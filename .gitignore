@@ -1,28 +1,21 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
-.Python
-build/
-develop-eggs/
+*.egg
+*.egg-info/
 dist/
-downloads/
+build/
 eggs/
-.eggs/
+parts/
+bin/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
 lib/
 lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
 venv/
-ENV/
 env/
 
 # IDE
@@ -30,40 +23,54 @@ env/
 .vscode/
 *.swp
 *.swo
+.DS_Store
 
 # Environment variables
 .env
-.env.local
-.env.*.local
 
 # Debug files
+debug_*/
 debug_*.jpg
 debug_*.png
-debug_*.txt
 *.log
-debug_*/
-debug_regions.png
-debug_region_*.jpg
-debug_page_*.jpg
 
 # Temporary files
 *_processed.jpg
 extracted_products_*.csv
-problematic_items_*.txt
-catalog_products_*.csv
-
-# Uploads directory
 uploads/
-
-# Operating System
-.DS_Store
-Thumbs.db
+*_text_*.txt
+catalog_text_*.txt
 
 # Test files
 test_*.py
 
 # Tesseract source code
 tesseract-main/
+
+# Node modules
+node_modules/
+package-lock.json
+package.json
+
+# Development files
+*.code-workspace
+*.db
+backup_*/
+*_WIP.py
+*_scraper.py
+catalog_*.py
+
+# PDF files
+*.pdf
+
+# CSV files
+*.csv
+
+# Temporary scripts
+server.js
+server.py
+start.bat
+vite.config.js
 
 # Screenshots and temporary images
 screenshot_*.png
