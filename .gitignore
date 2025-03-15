@@ -41,6 +41,16 @@ debug_*.jpg
 debug_*.png
 debug_*.txt
 *.log
+debug_*/
+debug_regions.png
+debug_region_*.jpg
+debug_page_*.jpg
+
+# Temporary files
+*_processed.jpg
+extracted_products_*.csv
+problematic_items_*.txt
+catalog_products_*.csv
 
 # Uploads directory
 uploads/
@@ -53,4 +63,9 @@ Thumbs.db
 test_*.py
 
 # Tesseract source code
-tesseract-main/ 
+tesseract-main/
+
+# Screenshots and temporary images
+screenshot_*.png
+*_original_*.jpg
+*_processed_*.jpg 
