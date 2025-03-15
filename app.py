@@ -2,14 +2,17 @@ from flask import Flask, request, jsonify, render_template
 import os
 from werkzeug.utils import secure_filename
 from PIL import Image
-import cv2
-import numpy as np
 import tempfile
 import io
 import json
 from google.cloud import vision
 from google.oauth2 import service_account
 import logging
+from skimage import io as skio
+from skimage.color import rgb2gray
+from skimage.filters import threshold_otsu
+from skimage.morphology import opening, square
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,29 +52,35 @@ def allowed_file(filename):
 
 def preprocess_image(image_path):
     """Apply simplified image preprocessing techniques to improve OCR accuracy"""
-    # Read image using OpenCV
-    img = cv2.imread(image_path)
+    # Read image using scikit-image
+    img = skio.imread(image_path)
     
     # Resize image if too large (maintain aspect ratio)
     max_dimension = 2000
     height, width = img.shape[:2]
     if max(height, width) > max_dimension:
         scale = max_dimension / max(height, width)
-        img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        new_height = int(height * scale)
+        new_width = int(width * scale)
+        img = skio.resize(img, (new_height, new_width), anti_aliasing=True)
     
     # Convert to grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if len(img.shape) > 2:  # If image is color
+        gray = rgb2gray(img)
+    else:
+        gray = img
     
     # Apply thresholding
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    thresh = threshold_otsu(gray)
+    binary = gray > thresh
     
     # Simple noise removal
-    kernel = np.ones((1, 1), np.uint8)
-    opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+    selem = square(2)
+    processed = opening(binary, selem)
     
     # Save preprocessed image
     preprocessed_path = image_path + "_processed.jpg"
-    cv2.imwrite(preprocessed_path, opening)
+    skio.imsave(preprocessed_path, (processed * 255).astype(np.uint8))
     
     return preprocessed_path
 

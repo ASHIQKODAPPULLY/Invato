@@ -1,7 +1,9 @@
 # Python dependencies for the project
 flask==3.0.2
 Pillow==10.2.0
-opencv-python-headless==4.9.0.80
-numpy==1.26.4
+google-cloud-vision==3.4.4
 Werkzeug==3.0.1
-google-cloud-vision==3.4.4 
+
+# Use a lighter image processing library instead of OpenCV
+imageio==2.31.6
+scikit-image==0.22.0 
