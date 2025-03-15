@@ -1,14 +1,19 @@
 from flask import Flask, request, jsonify, render_template
 import os
 from werkzeug.utils import secure_filename
-import pytesseract
 from PIL import Image
 import cv2
 import numpy as np
 import tempfile
+import io
+import json
+from google.cloud import vision
+from google.oauth2 import service_account
+import logging
 
-# Set Tesseract path for Vercel environment
-pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -17,6 +22,27 @@ app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp'}
+
+def get_vision_client():
+    """Get authenticated vision client using credentials from environment"""
+    try:
+        # Get credentials from environment variable
+        creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        if creds_json:
+            # If it's a JSON string, parse it
+            if creds_json.startswith('{'):
+                creds_dict = json.loads(creds_json)
+                credentials = service_account.Credentials.from_service_account_info(creds_dict)
+            else:
+                # If it's a file path
+                credentials = service_account.Credentials.from_service_account_file(creds_json)
+            
+            return vision.ImageAnnotatorClient(credentials=credentials)
+        else:
+            raise Exception("No Google Cloud credentials found in environment")
+    except Exception as e:
+        logger.error(f"Error initializing Vision client: {str(e)}")
+        raise
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -55,53 +81,85 @@ def index():
 
 @app.route('/extract-text', methods=['POST'])
 def extract_text():
-    # Check if the post request has the file part
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    
-    # If user does not select file, browser also
-    # submit an empty part without filename
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+    try:
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            logger.error("No file part in request")
+            return jsonify({'error': 'No file part'}), 400
         
-        try:
-            # Preprocess the image to improve OCR accuracy
-            preprocessed_path = preprocess_image(filepath)
+        file = request.files['file']
+        
+        # If user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            logger.error("No selected file")
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            logger.info(f"File saved to {filepath}")
             
-            # Simplified OCR configuration
-            custom_config = r'--oem 3 --psm 6'
-            
-            # For better language handling
-            lang = request.form.get('lang', 'eng')  # Default to English if not specified
-            if lang != 'eng':
-                custom_config += f' -l {lang}'
+            try:
+                # Preprocess the image to improve OCR accuracy
+                logger.info("Starting image preprocessing")
+                preprocessed_path = preprocess_image(filepath)
+                logger.info(f"Image preprocessed and saved to {preprocessed_path}")
                 
-            # Extract text using Tesseract
-            text = pytesseract.image_to_string(Image.open(preprocessed_path), config=custom_config)
-            
-            # Clean up files
-            os.remove(filepath)
-            os.remove(preprocessed_path)
-            
-            return jsonify({
-                'success': True,
-                'text': text
-            })
-            
-        except Exception as e:
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
-            
-    return jsonify({'error': 'File type not allowed'}), 400
+                # Initialize Vision client with credentials
+                client = get_vision_client()
+                logger.info("Vision client initialized")
+
+                # Read the image file
+                with io.open(preprocessed_path, 'rb') as image_file:
+                    content = image_file.read()
+
+                image = vision.Image(content=content)
+                
+                # Perform text detection
+                response = client.text_detection(image=image)
+                texts = response.text_annotations
+                
+                if texts:
+                    text = texts[0].description
+                else:
+                    text = ""
+                
+                logger.info("OCR completed successfully")
+                
+                # Clean up files
+                os.remove(filepath)
+                os.remove(preprocessed_path)
+                logger.info("Temporary files cleaned up")
+                
+                if response.error.message:
+                    raise Exception(
+                        '{}\nFor more info on error messages, check: '
+                        'https://cloud.google.com/apis/design/errors'.format(
+                            response.error.message))
+                
+                return jsonify({
+                    'success': True,
+                    'text': text
+                })
+                
+            except Exception as e:
+                logger.error(f"Error during processing: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'error': str(e)
+                }), 500
+                
+        logger.error(f"Invalid file type: {file.filename}")
+        return jsonify({'error': 'File type not allowed'}), 400
+        
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'An unexpected error occurred'
+        }), 500
 
 # For local development
 if __name__ == '__main__':
