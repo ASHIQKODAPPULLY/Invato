@@ -12,6 +12,10 @@ import traceback
 import sys
 from pdf2image import convert_from_path
 import shutil
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -26,6 +30,13 @@ handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
+
+# Print environment variables for debugging
+logger.info("Environment variables:")
+logger.info(f"FLASK_APP: {os.getenv('FLASK_APP')}")
+logger.info(f"FLASK_ENV: {os.getenv('FLASK_ENV')}")
+logger.info(f"FLASK_DEBUG: {os.getenv('FLASK_DEBUG')}")
+logger.info(f"GOOGLE_APPLICATION_CREDENTIALS: {os.getenv('GOOGLE_APPLICATION_CREDENTIALS')}")
 
 app = Flask(__name__, static_folder='static')
 
@@ -43,35 +54,39 @@ def get_vision_client():
     """Get authenticated vision client using credentials from environment"""
     try:
         # Get credentials from environment variable
-        creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
         logger.info("Checking for Google Cloud credentials")
         
-        if not creds_json:
+        if not creds_path:
             logger.error("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set")
             raise Exception("No Google Cloud credentials found in environment")
             
-        logger.info("Found credentials in environment")
+        logger.info(f"Found credentials path: {creds_path}")
         
+        # Try to read the credentials file
         try:
-            # If it's a JSON string, parse it
-            if creds_json.startswith('{'):
-                logger.info("Parsing JSON credentials string")
-                creds_dict = json.loads(creds_json)
-                credentials = service_account.Credentials.from_service_account_info(creds_dict)
-            else:
-                logger.info("Loading credentials from file path")
-                credentials = service_account.Credentials.from_service_account_file(creds_json)
-            
+            with open(creds_path, 'r') as f:
+                creds_content = f.read()
+                logger.info("Successfully read credentials file")
+                logger.info(f"Credentials file size: {len(creds_content)} bytes")
+        except Exception as e:
+            logger.error(f"Failed to read credentials file: {str(e)}")
+            raise Exception(f"Failed to read credentials file: {str(e)}")
+
+        try:
+            # Parse credentials
+            credentials = service_account.Credentials.from_service_account_file(creds_path)
             logger.info("Successfully created credentials object")
+            
+            # Create and test the client
             client = vision.ImageAnnotatorClient(credentials=credentials)
             logger.info("Successfully created Vision client")
+            
             return client
             
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse credentials JSON: {str(e)}")
-            raise
         except Exception as e:
-            logger.error(f"Failed to create credentials: {str(e)}")
+            logger.error(f"Failed to create Vision client: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
             
     except Exception as e:
