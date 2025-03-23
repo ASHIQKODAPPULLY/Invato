@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import os
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, UnidentifiedImageError
 import tempfile
 import io
 import json
@@ -13,6 +13,7 @@ import sys
 from pdf2image import convert_from_path
 import shutil
 from dotenv import load_dotenv
+import mimetypes
 
 # Load environment variables from .env file
 load_dotenv()
@@ -45,6 +46,10 @@ app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp', 'pdf'}
+ALLOWED_MIMETYPES = {
+    'image/png', 'image/jpeg', 'image/gif', 'image/bmp', 
+    'image/tiff', 'image/webp', 'application/pdf'
+}
 
 @app.route('/favicon.ico')
 def favicon():
@@ -94,8 +99,11 @@ def get_vision_client():
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise
 
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(filename, mimetype=None):
+    """Check if file is allowed based on extension and mimetype"""
+    extension_ok = '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    mimetype_ok = mimetype in ALLOWED_MIMETYPES if mimetype else True
+    return extension_ok and mimetype_ok
 
 def preprocess_image(image_path):
     """Apply basic image preprocessing using PIL"""
@@ -109,61 +117,64 @@ def preprocess_image(image_path):
             
         # Open image and log details
         logger.info("Opening image with PIL")
-        with Image.open(image_path) as img:
-            # Log detailed image information
-            logger.info(f"Original image details:")
-            logger.info(f"- Mode: {img.mode}")
-            logger.info(f"- Size: {img.size}")
-            logger.info(f"- Format: {img.format}")
-            logger.info(f"- Info: {img.info}")
-            
-            try:
-                # Convert to RGB if needed
-                if img.mode not in ['RGB', 'L']:
-                    logger.info(f"Converting image from {img.mode} to RGB")
-                    img = img.convert('RGB')
+        try:
+            with Image.open(image_path) as img:
+                # Log detailed image information
+                logger.info(f"Original image details:")
+                logger.info(f"- Mode: {img.mode}")
+                logger.info(f"- Size: {img.size}")
+                logger.info(f"- Format: {img.format}")
                 
-                # Resize if too large
-                max_dimension = 4000  # Increased from 2000
-                if max(img.size) > max_dimension:
-                    ratio = max_dimension / max(img.size)
-                    new_size = tuple(int(dim * ratio) for dim in img.size)
-                    logger.info(f"Resizing image from {img.size} to {new_size}")
-                    img = img.resize(new_size, Image.Resampling.LANCZOS)
-                
-                # Convert to grayscale
-                if img.mode != 'L':
-                    logger.info("Converting to grayscale")
-                    img = img.convert('L')
-                
-                # Enhance contrast
-                logger.info("Enhancing contrast")
-                enhancer = ImageEnhance.Contrast(img)
-                img = enhancer.enhance(1.5)  # Reduced from 2.0 for better screenshot handling
-                
-                # Save preprocessed image with high quality
-                preprocessed_path = image_path + "_processed.jpg"
-                logger.info(f"Saving preprocessed image to: {preprocessed_path}")
-                img.save(preprocessed_path, 'JPEG', quality=95, optimize=True)
-                
-                # Verify the saved file
-                if not os.path.exists(preprocessed_path):
-                    logger.error("Failed to save preprocessed image")
-                    raise Exception("Failed to save preprocessed image")
-                
-                # Log preprocessed image details
-                with Image.open(preprocessed_path) as processed_img:
-                    logger.info(f"Preprocessed image details:")
-                    logger.info(f"- Mode: {processed_img.mode}")
-                    logger.info(f"- Size: {processed_img.size}")
-                    logger.info(f"- Format: {processed_img.format}")
-                
-                logger.info("Image preprocessing completed successfully")
-                return preprocessed_path
-                
-            except Exception as e:
-                logger.error(f"Error during image conversion/processing: {str(e)}")
-                raise
+                try:
+                    # Convert to RGB if needed
+                    if img.mode not in ['RGB', 'L']:
+                        logger.info(f"Converting image from {img.mode} to RGB")
+                        img = img.convert('RGB')
+                    
+                    # Resize if too large
+                    max_dimension = 4000  # Increased from 2000
+                    if max(img.size) > max_dimension:
+                        ratio = max_dimension / max(img.size)
+                        new_size = tuple(int(dim * ratio) for dim in img.size)
+                        logger.info(f"Resizing image from {img.size} to {new_size}")
+                        img = img.resize(new_size, Image.Resampling.LANCZOS)
+                    
+                    # Convert to grayscale
+                    if img.mode != 'L':
+                        logger.info("Converting to grayscale")
+                        img = img.convert('L')
+                    
+                    # Enhance contrast
+                    logger.info("Enhancing contrast")
+                    enhancer = ImageEnhance.Contrast(img)
+                    img = enhancer.enhance(1.5)  # Reduced from 2.0 for better screenshot handling
+                    
+                    # Save preprocessed image with high quality
+                    preprocessed_path = image_path + "_processed.jpg"
+                    logger.info(f"Saving preprocessed image to: {preprocessed_path}")
+                    img.save(preprocessed_path, 'JPEG', quality=95, optimize=True)
+                    
+                    # Verify the saved file
+                    if not os.path.exists(preprocessed_path):
+                        logger.error("Failed to save preprocessed image")
+                        raise Exception("Failed to save preprocessed image")
+                    
+                    # Log preprocessed image details
+                    with Image.open(preprocessed_path) as processed_img:
+                        logger.info(f"Preprocessed image details:")
+                        logger.info(f"- Mode: {processed_img.mode}")
+                        logger.info(f"- Size: {processed_img.size}")
+                        logger.info(f"- Format: {processed_img.format}")
+                    
+                    logger.info("Image preprocessing completed successfully")
+                    return preprocessed_path
+                    
+                except Exception as e:
+                    logger.error(f"Error during image conversion/processing: {str(e)}")
+                    raise
+        except UnidentifiedImageError:
+            logger.error("Could not identify image file format")
+            raise Exception("Could not identify image file format. Please ensure it's a valid image file.")
             
     except Exception as e:
         logger.error(f"Error in image preprocessing: {str(e)}")
@@ -230,12 +241,13 @@ def index():
 
 @app.route('/extract-text', methods=['POST'])
 def extract_text():
+    temp_files = []  # Track temporary files for cleanup
     try:
         logger.info("Received text extraction request")
         
         if 'file' not in request.files:
             logger.error("No file part in request")
-            return jsonify({'error': 'No file part'}), 400
+            return jsonify({'error': 'No file was uploaded. Please select a file.'}), 400
         
         file = request.files['file']
         logger.info(f"Received file: {file.filename}")
@@ -244,93 +256,79 @@ def extract_text():
         
         if file.filename == '':
             logger.error("No selected file")
-            return jsonify({'error': 'No selected file'}), 400
+            return jsonify({'error': 'No file was selected. Please choose a file.'}), 400
         
-        if not allowed_file(file.filename):
-            logger.error(f"Invalid file type: {file.filename}")
-            return jsonify({'error': 'File type not allowed'}), 400
-            
+        if not allowed_file(file.filename, file.content_type):
+            logger.error(f"Invalid file type: {file.filename} ({file.content_type})")
+            return jsonify({
+                'error': 'Invalid file type. Please upload an image (PNG, JPG, etc.) or PDF file.'
+            }), 400
+
+        if file.content_length and file.content_length > app.config['MAX_CONTENT_LENGTH']:
+            logger.error(f"File too large: {file.content_length} bytes")
+            return jsonify({
+                'error': 'File is too large. Maximum size is 16MB.'
+            }), 400
+
+        # Save uploaded file
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        logger.info(f"Saving file to: {filepath}")
-        
-        # Ensure upload directory exists
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        
-        # Save file and verify
-        file.save(filepath)
-        if not os.path.exists(filepath):
-            logger.error("Failed to save file")
-            return jsonify({'error': 'Failed to save file'}), 500
-            
-        file_size = os.path.getsize(filepath)
-        logger.info(f"File saved successfully. Size on disk: {file_size} bytes")
-        
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(temp_path)
+        temp_files.append(temp_path)
+        logger.info(f"Saved file to: {temp_path}")
+
         try:
-            # Check if file is PDF
+            # Initialize Vision client
+            client = get_vision_client()
+            
+            # Process based on file type
             if filename.lower().endswith('.pdf'):
                 logger.info("Processing PDF file")
-                text = process_pdf(filepath)
+                extracted_text = process_pdf(temp_path)
             else:
                 logger.info("Processing image file")
-                # Process image as before
+                # Preprocess the image
                 try:
-                    preprocessed_path = preprocess_image(filepath)
-                    logger.info(f"Image preprocessed successfully to: {preprocessed_path}")
+                    preprocessed_path = preprocess_image(temp_path)
+                    temp_files.append(preprocessed_path)
                     
-                    client = get_vision_client()
-                    logger.info("Vision client created successfully")
-                    
+                    # Read the preprocessed image
                     with io.open(preprocessed_path, 'rb') as image_file:
                         content = image_file.read()
-                        logger.info(f"Read preprocessed image, size: {len(content)} bytes")
-                    
-                    image = vision.Image(content=content)
-                    logger.info("Created Vision Image object")
-                    
-                    response = client.text_detection(image=image)
-                    logger.info("Received response from Vision API")
+                        
+                    # Create vision image and detect text
+                    vision_image = vision.Image(content=content)
+                    response = client.text_detection(image=vision_image)
                     
                     if response.error.message:
                         logger.error(f"Error from Vision API: {response.error.message}")
-                        raise Exception(response.error.message)
+                        raise Exception(f"Error processing image: {response.error.message}")
                     
                     texts = response.text_annotations
-                    logger.info(f"Number of text annotations found: {len(texts) if texts else 0}")
+                    logger.info(f"Found {len(texts)} text annotations")
                     
-                    text = texts[0].description if texts else ""
-                    logger.info(f"Extracted text length: {len(text)} characters")
+                    if not texts:
+                        return jsonify({
+                            'success': True,
+                            'text': '',
+                            'message': 'No text was found in the image.'
+                        })
                     
-                    # Clean up preprocessed image
-                    os.remove(preprocessed_path)
-                    logger.info("Cleaned up preprocessed image")
+                    extracted_text = texts[0].description
+                    
                 except Exception as e:
-                    logger.error(f"Error during image processing: {str(e)}")
-                    logger.error(f"Traceback: {traceback.format_exc()}")
-                    raise
+                    logger.error(f"Error processing image: {str(e)}")
+                    raise Exception(f"Error processing image: {str(e)}")
             
-            # Clean up original file
-            os.remove(filepath)
-            logger.info("Cleaned up original file")
-            
+            # Return the extracted text
             return jsonify({
                 'success': True,
-                'text': text
+                'text': extracted_text
             })
             
         except Exception as e:
-            logger.error(f"Error during processing: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            # Try to clean up files if they exist
-            for path in [filepath, filepath + "_processed.jpg"]:
-                try:
-                    if os.path.exists(path):
-                        os.remove(path)
-                        logger.info(f"Cleaned up file: {path}")
-                except Exception as cleanup_error:
-                    logger.error(f"Error cleaning up file {path}: {str(cleanup_error)}")
+            logger.error(f"Error in text extraction: {str(e)}")
             return jsonify({
-                'success': False,
                 'error': str(e)
             }), 500
             
@@ -338,9 +336,29 @@ def extract_text():
         logger.error(f"Unexpected error: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
-            'success': False,
-            'error': 'An unexpected error occurred'
+            'error': 'An unexpected error occurred. Please try again.'
         }), 500
+        
+    finally:
+        # Clean up temporary files
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+                    logger.info(f"Cleaned up temporary file: {temp_file}")
+            except Exception as e:
+                logger.error(f"Error cleaning up temporary file {temp_file}: {str(e)}")
 
 if __name__ == '__main__':
-    app.run(host='localhost', port=5000, debug=True) 
+    # Ensure the upload folder exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Get the port from environment or use default
+    port = int(os.getenv('PORT', 5000))
+    
+    # Run the app
+    app.run(
+        host='0.0.0.0',  # Make the server publicly available
+        port=port,
+        debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    ) 
