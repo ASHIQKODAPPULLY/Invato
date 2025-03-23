@@ -1,8 +1,8 @@
 # Core dependencies
-flask==3.0.2
+Flask==3.0.2
 Pillow==10.2.0
 google-cloud-vision==3.5.0
+python-dotenv==1.0.1
 Werkzeug==3.0.1
 pdf2image==1.17.0
-poppler-utils
-python-dotenv==1.0.1 
+gunicorn==21.2.0 

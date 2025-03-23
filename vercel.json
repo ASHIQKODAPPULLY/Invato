@@ -3,12 +3,7 @@
     "builds": [
         {
             "src": "app.py",
-            "use": "@vercel/python",
-            "config": {
-                "maxLambdaSize": "15mb",
-                "runtime": "python3.9",
-                "excludeFiles": "**/*.?(test|spec).py"
-            }
+            "use": "@vercel/python"
         }
     ],
     "routes": [
@@ -18,12 +13,8 @@
         }
     ],
     "env": {
-        "PYTHONPATH": "/var/task"
-    },
-    "functions": {
-        "app.py": {
-            "memory": 1024,
-            "maxDuration": 10
-        }
+        "PYTHONPATH": ".",
+        "FLASK_APP": "app.py",
+        "FLASK_ENV": "production"
     }
 } 
