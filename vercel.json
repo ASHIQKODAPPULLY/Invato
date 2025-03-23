@@ -26,6 +26,8 @@
         "PYTHONPATH": ".",
         "FLASK_APP": "app.py",
         "FLASK_ENV": "production",
-        "GOOGLE_CLOUD_PROJECT": "your-project-id"
+        "GOOGLE_CLOUD_PROJECT": "your-project-id",
+        "PYTHON_VERSION": "3.9",
+        "MAX_CONTENT_LENGTH": "10485760"
     }
 } 
