@@ -42,8 +42,8 @@ logger.info(f"GOOGLE_APPLICATION_CREDENTIALS: {os.getenv('GOOGLE_APPLICATION_CRE
 app = Flask(__name__, static_folder='static')
 
 # Use temporary directory for uploads
-app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
+app.config['UPLOAD_FOLDER'] = '/tmp' if os.path.exists('/tmp') else tempfile.gettempdir()
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB max upload
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp', 'pdf'}
 ALLOWED_MIMETYPES = {
@@ -56,44 +56,32 @@ def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 def get_vision_client():
-    """Get authenticated vision client using credentials from environment"""
+    """Get authenticated vision client using credentials"""
     try:
-        # Get credentials from environment variable
-        creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-        logger.info("Checking for Google Cloud credentials")
-        
-        if not creds_path:
-            logger.error("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set")
-            raise Exception("No Google Cloud credentials found in environment")
-            
-        logger.info(f"Found credentials path: {creds_path}")
-        
-        # Try to read the credentials file
-        try:
-            with open(creds_path, 'r') as f:
-                creds_content = f.read()
-                logger.info("Successfully read credentials file")
-                logger.info(f"Credentials file size: {len(creds_content)} bytes")
-        except Exception as e:
-            logger.error(f"Failed to read credentials file: {str(e)}")
-            raise Exception(f"Failed to read credentials file: {str(e)}")
-
-        try:
-            # Parse credentials
+        # Check for credentials in environment variable
+        creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
+        if creds_json:
+            try:
+                # Parse credentials from JSON string
+                creds_dict = json.loads(creds_json)
+                credentials = service_account.Credentials.from_service_account_info(creds_dict)
+                logger.info("Successfully created credentials from JSON string")
+            except Exception as e:
+                logger.error(f"Failed to parse credentials JSON: {str(e)}")
+                raise
+        else:
+            # Fall back to credentials file
+            creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+            if not creds_path:
+                raise Exception("No Google Cloud credentials found")
             credentials = service_account.Credentials.from_service_account_file(creds_path)
-            logger.info("Successfully created credentials object")
-            
-            # Create and test the client
-            client = vision.ImageAnnotatorClient(credentials=credentials)
-            logger.info("Successfully created Vision client")
-            
-            return client
-            
-        except Exception as e:
-            logger.error(f"Failed to create Vision client: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            raise
-            
+            logger.info("Successfully created credentials from file")
+
+        # Create and return the client
+        client = vision.ImageAnnotatorClient(credentials=credentials)
+        logger.info("Successfully created Vision client")
+        return client
+
     except Exception as e:
         logger.error(f"Error in get_vision_client: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -241,33 +229,18 @@ def index():
 
 @app.route('/extract-text', methods=['POST'])
 def extract_text():
-    temp_files = []  # Track temporary files for cleanup
+    temp_files = []
     try:
-        logger.info("Received text extraction request")
-        
         if 'file' not in request.files:
-            logger.error("No file part in request")
             return jsonify({'error': 'No file was uploaded. Please select a file.'}), 400
         
         file = request.files['file']
-        logger.info(f"Received file: {file.filename}")
-        logger.info(f"File content type: {file.content_type}")
-        logger.info(f"File size: {file.content_length if hasattr(file, 'content_length') else 'unknown'} bytes")
-        
         if file.filename == '':
-            logger.error("No selected file")
             return jsonify({'error': 'No file was selected. Please choose a file.'}), 400
         
         if not allowed_file(file.filename, file.content_type):
-            logger.error(f"Invalid file type: {file.filename} ({file.content_type})")
             return jsonify({
                 'error': 'Invalid file type. Please upload an image (PNG, JPG, etc.) or PDF file.'
-            }), 400
-
-        if file.content_length and file.content_length > app.config['MAX_CONTENT_LENGTH']:
-            logger.error(f"File too large: {file.content_length} bytes")
-            return jsonify({
-                'error': 'File is too large. Maximum size is 16MB.'
             }), 400
 
         # Save uploaded file
@@ -275,52 +248,35 @@ def extract_text():
         temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(temp_path)
         temp_files.append(temp_path)
-        logger.info(f"Saved file to: {temp_path}")
 
         try:
-            # Initialize Vision client
             client = get_vision_client()
             
-            # Process based on file type
             if filename.lower().endswith('.pdf'):
-                logger.info("Processing PDF file")
                 extracted_text = process_pdf(temp_path)
             else:
-                logger.info("Processing image file")
-                # Preprocess the image
-                try:
-                    preprocessed_path = preprocess_image(temp_path)
-                    temp_files.append(preprocessed_path)
+                preprocessed_path = preprocess_image(temp_path)
+                temp_files.append(preprocessed_path)
+                
+                with io.open(preprocessed_path, 'rb') as image_file:
+                    content = image_file.read()
                     
-                    # Read the preprocessed image
-                    with io.open(preprocessed_path, 'rb') as image_file:
-                        content = image_file.read()
-                        
-                    # Create vision image and detect text
-                    vision_image = vision.Image(content=content)
-                    response = client.text_detection(image=vision_image)
-                    
-                    if response.error.message:
-                        logger.error(f"Error from Vision API: {response.error.message}")
-                        raise Exception(f"Error processing image: {response.error.message}")
-                    
-                    texts = response.text_annotations
-                    logger.info(f"Found {len(texts)} text annotations")
-                    
-                    if not texts:
-                        return jsonify({
-                            'success': True,
-                            'text': '',
-                            'message': 'No text was found in the image.'
-                        })
-                    
-                    extracted_text = texts[0].description
-                    
-                except Exception as e:
-                    logger.error(f"Error processing image: {str(e)}")
-                    raise Exception(f"Error processing image: {str(e)}")
+                vision_image = vision.Image(content=content)
+                response = client.text_detection(image=vision_image)
+                
+                if response.error.message:
+                    raise Exception(f"Error processing image: {response.error.message}")
+                
+                texts = response.text_annotations
+                if not texts:
+                    return jsonify({
+                        'success': True,
+                        'text': '',
+                        'message': 'No text was found in the image.'
+                    })
+                
+                extracted_text = texts[0].description
             
-            # Return the extracted text
             return jsonify({
                 'success': True,
                 'text': extracted_text
@@ -328,37 +284,25 @@ def extract_text():
             
         except Exception as e:
             logger.error(f"Error in text extraction: {str(e)}")
-            return jsonify({
-                'error': str(e)
-            }), 500
+            return jsonify({'error': str(e)}), 500
             
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             'error': 'An unexpected error occurred. Please try again.'
         }), 500
         
     finally:
-        # Clean up temporary files
         for temp_file in temp_files:
             try:
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
-                    logger.info(f"Cleaned up temporary file: {temp_file}")
             except Exception as e:
-                logger.error(f"Error cleaning up temporary file {temp_file}: {str(e)}")
+                logger.error(f"Error cleaning up temp file {temp_file}: {str(e)}")
+
+# Vercel requires a module-level 'app' variable
+application = app
 
 if __name__ == '__main__':
-    # Ensure the upload folder exists
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    
-    # Get the port from environment or use default
     port = int(os.getenv('PORT', 5000))
-    
-    # Run the app
-    app.run(
-        host='0.0.0.0',  # Make the server publicly available
-        port=port,
-        debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    ) 
+    app.run(host='0.0.0.0', port=port) 

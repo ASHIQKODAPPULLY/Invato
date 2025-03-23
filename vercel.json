@@ -3,7 +3,11 @@
     "builds": [
         {
             "src": "app.py",
-            "use": "@vercel/python"
+            "use": "@vercel/python",
+            "config": {
+                "maxLambdaSize": "15mb",
+                "runtime": "python3.9"
+            }
         }
     ],
     "routes": [
@@ -12,9 +16,16 @@
             "dest": "app.py"
         }
     ],
+    "functions": {
+        "app.py": {
+            "memory": 1024,
+            "maxDuration": 10
+        }
+    },
     "env": {
         "PYTHONPATH": ".",
         "FLASK_APP": "app.py",
-        "FLASK_ENV": "production"
+        "FLASK_ENV": "production",
+        "GOOGLE_CLOUD_PROJECT": "your-project-id"
     }
 } 
