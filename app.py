@@ -21,16 +21,10 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
 )
 logger = logging.getLogger(__name__)
-
-# Add handler to also log to stderr
-handler = logging.StreamHandler(sys.stderr)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 # Print environment variables for debugging
 logger.info("Environment variables:")
@@ -45,6 +39,7 @@ app = Flask(__name__, static_folder='static')
 UPLOAD_FOLDER = '/tmp'
 if not os.path.exists(UPLOAD_FOLDER):
     UPLOAD_FOLDER = tempfile.gettempdir()
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))  # 10MB max upload
@@ -64,31 +59,24 @@ def get_vision_client():
     try:
         # First try to get credentials from environment variable JSON
         creds_json = os.getenv('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-        if creds_json:
-            try:
-                creds_dict = json.loads(creds_json)
-                credentials = service_account.Credentials.from_service_account_info(creds_dict)
-                logger.info("Successfully created credentials from JSON environment variable")
-                return vision.ImageAnnotatorClient(credentials=credentials)
-            except Exception as e:
-                logger.error(f"Failed to parse credentials JSON from environment: {str(e)}")
-                raise
+        if not creds_json:
+            logger.error("No credentials JSON found in environment variables")
+            raise Exception("Google Cloud credentials not found")
 
-        # Fallback to credentials file
-        creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-        if not creds_path:
-            raise Exception("No Google Cloud credentials found in environment")
-            
-        if not os.path.exists(creds_path):
-            raise Exception(f"Credentials file not found at: {creds_path}")
-            
-        credentials = service_account.Credentials.from_service_account_file(creds_path)
-        logger.info("Successfully created credentials from file")
-        return vision.ImageAnnotatorClient(credentials=credentials)
+        try:
+            creds_dict = json.loads(creds_json)
+            credentials = service_account.Credentials.from_service_account_info(creds_dict)
+            logger.info("Successfully created credentials from environment JSON")
+            return vision.ImageAnnotatorClient(credentials=credentials)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse credentials JSON: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Error creating vision client: {str(e)}")
+            raise
 
     except Exception as e:
-        logger.error(f"Error in get_vision_client: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Failed to initialize Vision client: {str(e)}")
         raise
 
 def allowed_file(filename, mimetype=None):
@@ -235,73 +223,70 @@ def index():
 def extract_text():
     temp_files = []
     try:
+        # Check if file was uploaded
         if 'file' not in request.files:
-            return jsonify({'error': 'No file was uploaded'}), 400
-            
+            logger.error("No file part in request")
+            return jsonify({'error': 'No file uploaded'}), 400
+
         file = request.files['file']
         if file.filename == '':
+            logger.error("No selected file")
             return jsonify({'error': 'No file selected'}), 400
-            
-        if not allowed_file(file.filename, file.content_type):
-            return jsonify({'error': 'Invalid file type'}), 400
 
-        # Create temp directory if it doesn't exist
-        if not os.path.exists(app.config['UPLOAD_FOLDER']):
-            os.makedirs(app.config['UPLOAD_FOLDER'])
+        if not allowed_file(file.filename, file.content_type):
+            logger.error(f"Invalid file type: {file.filename}")
+            return jsonify({'error': 'Invalid file type'}), 400
 
         # Save uploaded file
         filename = secure_filename(file.filename)
         temp_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(temp_path)
         temp_files.append(temp_path)
+        logger.info(f"File saved to {temp_path}")
 
-        try:
-            client = get_vision_client()
-            
-            if filename.lower().endswith('.pdf'):
-                extracted_text = process_pdf(temp_path)
-            else:
-                preprocessed_path = preprocess_image(temp_path)
-                temp_files.append(preprocessed_path)
-                
-                with io.open(preprocessed_path, 'rb') as image_file:
-                    content = image_file.read()
-                    
-                vision_image = vision.Image(content=content)
-                response = client.text_detection(image=vision_image)
-                
-                if response.error.message:
-                    raise Exception(f"Vision API error: {response.error.message}")
-                
-                texts = response.text_annotations
-                if not texts:
-                    return jsonify({
-                        'success': True,
-                        'text': '',
-                        'message': 'No text found in image'
-                    })
-                
-                extracted_text = texts[0].description
-            
+        # Initialize Vision client
+        client = get_vision_client()
+        logger.info("Vision client initialized successfully")
+
+        # Process image
+        with open(temp_path, 'rb') as image_file:
+            content = image_file.read()
+
+        image = vision.Image(content=content)
+        response = client.text_detection(image=image)
+        
+        if response.error.message:
+            logger.error(f"Vision API error: {response.error.message}")
+            raise Exception(f"Vision API error: {response.error.message}")
+
+        texts = response.text_annotations
+        if not texts:
+            logger.info("No text found in image")
             return jsonify({
                 'success': True,
-                'text': extracted_text
+                'text': '',
+                'message': 'No text found in image'
             })
-            
-        except Exception as e:
-            logger.error(f"Error in text extraction: {str(e)}")
-            return jsonify({'error': str(e)}), 500
-            
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return jsonify({'error': 'An unexpected error occurred'}), 500
+
+        extracted_text = texts[0].description
+        logger.info(f"Successfully extracted text from image")
         
+        return jsonify({
+            'success': True,
+            'text': extracted_text
+        })
+
+    except Exception as e:
+        logger.error(f"Error processing request: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
     finally:
         # Clean up temp files
         for temp_file in temp_files:
             try:
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
+                    logger.info(f"Cleaned up temp file: {temp_file}")
             except Exception as e:
                 logger.error(f"Error cleaning up temp file {temp_file}: {str(e)}")
 
