@@ -14,6 +14,7 @@ from pdf2image import convert_from_path
 import shutil
 from dotenv import load_dotenv
 import mimetypes
+from flask_cors import CORS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -34,6 +35,7 @@ logger.info(f"FLASK_DEBUG: {os.getenv('FLASK_DEBUG')}")
 logger.info(f"GOOGLE_APPLICATION_CREDENTIALS: {os.getenv('GOOGLE_APPLICATION_CREDENTIALS')}")
 
 app = Flask(__name__, static_folder='static')
+CORS(app)
 
 # Use /tmp for Vercel serverless environment
 UPLOAD_FOLDER = '/tmp'
@@ -218,6 +220,10 @@ def process_pdf(pdf_path):
 def index():
     logger.info("Serving index page")
     return render_template('index.html')
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "healthy"}), 200
 
 @app.route('/extract-text', methods=['POST'])
 def extract_text():
