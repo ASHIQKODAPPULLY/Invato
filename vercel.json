@@ -6,28 +6,30 @@
             "use": "@vercel/python",
             "config": {
                 "maxLambdaSize": "15mb",
-                "runtime": "python3.9"
+                "runtime": "python3.9",
+                "handler": "app.py"
             }
         }
     ],
     "routes": [
         {
             "src": "/(.*)",
-            "dest": "app.py"
+            "dest": "app.py",
+            "methods": ["GET", "POST", "OPTIONS"]
         }
     ],
     "functions": {
         "app.py": {
             "memory": 1024,
-            "maxDuration": 10
+            "maxDuration": 60
         }
     },
     "env": {
         "PYTHONPATH": ".",
         "FLASK_APP": "app.py",
         "FLASK_ENV": "production",
-        "GOOGLE_CLOUD_PROJECT": "your-project-id",
         "PYTHON_VERSION": "3.9",
-        "MAX_CONTENT_LENGTH": "10485760"
+        "MAX_CONTENT_LENGTH": "10485760",
+        "PYTHONUNBUFFERED": "1"
     }
 } 
